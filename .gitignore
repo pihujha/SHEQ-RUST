@@ -1,0 +1,15 @@
+# Ignore Rust build output folder
+/target/
+
+# Ignore Cargo lock file (optional)
+Cargo.lock
+
+# macOS system files
+.DS_Store
+
+# VS Code settings folder
+.vscode/
+
+# Log files
+*.log
+
