@@ -1,95 +1,91 @@
 // ----------------------------- ExprC -----------------------------
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprC {
     NumC(NumC),
     IdC(IdC),
     StringC(StringC),
     IfC(IfC),
-    LambdaC(LambdaC),
-    AppC(AppC),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NumC {
     pub n: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IdC {
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StringC {
     pub s: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfC {
     pub condition: Box<ExprC>,
     pub then_: Box<ExprC>,
     pub else_: Box<ExprC>,
 }
 
-#[derive(Debug)]
-pub struct LambdaC {
-    pub args: Vec<String>,
-    pub body: Box<ExprC>,
-}
-
-#[derive(Debug)]
-pub struct AppC {
-    pub fun: Box<ExprC>,
-    pub args: Vec<ExprC>,
-}
-
 // Keywords list
-pub static KEYWORDS: &[&str] = &["if", "let", "in", "end", "lambda", ":", "="];
+pub static KEYWORDS: &[&str] = &["if", "let", "in", "end", ":", "="];
 
 // ----------------------------- Value -----------------------------
 
+#[derive(Debug, Clone)]
 pub enum Value {
     NumV(NumV),
     BoolV(BoolV),
     StringV(StringV),
-    CloV(CloV),
-    PrimV(PrimV),
 }
 
+#[derive(Debug, Clone)]
 pub struct NumV {
     pub n: f64,
 }
 
+#[derive(Debug, Clone)]
 pub struct BoolV {
     pub b: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct StringV {
     pub s: String,
 }
 
-pub struct CloV {
-    pub params: Vec<String>,
-    pub body: ExprC,
-    pub env: Environment,
-}
-
-pub struct PrimV {
-    pub name: String,
-    pub func: fn(Vec<Value>) -> Value,
-}
-
 pub type Environment = Vec<(String, Value)>;
 
+fn lookup(env: &Environment, name: &str) -> Value {
+    env.iter()
+        .rev()
+        .find(|(n, _)| n == name)
+        .map(|(_, v)| v.clone())
+        .unwrap_or_else(|| panic!("Unbound identifier {name}"))
+}
+
 fn interp(expr: ExprC) -> Value {
+    interp_with_env(expr, &vec![])
+}
+
+fn interp_with_env(expr: ExprC, env: &Environment) -> Value {
     match expr {
         ExprC::NumC(nc) => Value::NumV(NumV { n: nc.n }),
-        ExprC::IdC(idc) => unimplemented!("IdC not implemented for {}", idc.name),
+        ExprC::IdC(idc) => lookup(env, &idc.name),
         ExprC::StringC(sc) => Value::StringV(StringV { s: sc.s }),
-        ExprC::IfC(if_c) => unimplemented!("IfC not implemented for {:?}", if_c.condition), // :? => print a developer-friendly debug representation of a value
-        ExprC::LambdaC(_) => unimplemented!("LambdaC not implemented"),
-        ExprC::AppC(_) => unimplemented!("AppC not implemented"),
+        ExprC::IfC(if_c) => match interp_with_env(*if_c.condition, env) {
+            Value::BoolV(bv) => {
+                if bv.b {
+                    interp_with_env(*if_c.then_, env)
+                } else {
+                    interp_with_env(*if_c.else_, env)
+                }
+            }
+            other => panic!("If expected boolean, got {:?}", other),
+        },
     }
 }
 
@@ -98,8 +94,6 @@ fn serialize(val: Value) -> String {
         Value::NumV(nv) => nv.n.to_string(),
         Value::BoolV(bv) => bv.b.to_string(),
         Value::StringV(sv) => sv.s.to_string(),
-        Value::CloV(_) => "#<procedure>".to_string(),
-        Value::PrimV(_) => "#<primop>".to_string(),
     }
 }
 
@@ -130,4 +124,45 @@ mod tests {
         let output = serialize(val);
         assert_eq!(output, "Hello world!");
     }
+
+    #[test]
+    fn test_idc_interp_lookup() {
+        let env = vec![("x".to_string(), Value::NumV(NumV { n: 42.0 }))];
+        let expr = ExprC::IdC(IdC {
+            name: "x".to_string(),
+        });
+
+        let val = interp_with_env(expr, &env);
+
+        match val {
+            Value::NumV(nv) => assert_eq!(nv.n, 42.0),
+            other => panic!("Unexpected value for IdC: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_ifc_branches() {
+        let env = vec![
+            ("cond".to_string(), Value::BoolV(BoolV { b: true })),
+            ("other".to_string(), Value::NumV(NumV { n: 99.0 })),
+        ];
+
+        let expr = ExprC::IfC(IfC {
+            condition: Box::new(ExprC::IdC(IdC {
+                name: "cond".to_string(),
+            })),
+            then_: Box::new(ExprC::NumC(NumC { n: 1.0 })),
+            else_: Box::new(ExprC::IdC(IdC {
+                name: "other".to_string(),
+            })),
+        });
+
+        let val = interp_with_env(expr, &env);
+
+        match val {
+            Value::NumV(nv) => assert_eq!(nv.n, 1.0),
+            other => panic!("Unexpected value for IfC: {:?}", other),
+        }
+    }
+
 }
