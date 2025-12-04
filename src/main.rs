@@ -22,7 +22,7 @@ pub struct IdC {
 
 #[derive(Debug)]
 pub struct StringC {
-    pub str_: String,
+    pub s: String,
 }
 
 #[derive(Debug)]
@@ -43,7 +43,6 @@ pub struct AppC {
     pub fun: Box<ExprC>,
     pub args: Vec<ExprC>,
 }
-
 
 // Keywords list
 pub static KEYWORDS: &[&str] = &["if", "let", "in", "end", "lambda", ":", "="];
@@ -81,11 +80,54 @@ pub struct PrimV {
     pub func: fn(Vec<Value>) -> Value,
 }
 
-pub type Environment = Vec<(String, Value)>; 
+pub type Environment = Vec<(String, Value)>;
 
-fn main() {
-    // interp function?
-    let expr = ExprC::NumC(NumC { n: 10.0 });
-    println!("{:?}", expr)
+fn interp(expr: ExprC) -> Value {
+    match expr {
+        ExprC::NumC(nc) => Value::NumV(NumV { n: nc.n }),
+        ExprC::IdC(idc) => unimplemented!("IdC not implemented for {}", idc.name),
+        ExprC::StringC(sc) => Value::StringV(StringV { s: sc.s }),
+        ExprC::IfC(if_c) => unimplemented!("IfC not implemented for {:?}", if_c.condition), // :? => print a developer-friendly debug representation of a value
+        ExprC::LambdaC(_) => unimplemented!("LambdaC not implemented"),
+        ExprC::AppC(_) => unimplemented!("AppC not implemented"),
+    }
 }
 
+fn serialize(val: Value) -> String {
+    match val {
+        Value::NumV(nv) => nv.n.to_string(),
+        Value::BoolV(bv) => bv.b.to_string(),
+        Value::StringV(sv) => sv.s.to_string(),
+        Value::CloV(_) => "#<procedure>".to_string(),
+        Value::PrimV(_) => "#<primop>".to_string(),
+    }
+}
+
+fn main() {
+    let expr: ExprC = ExprC::NumC(NumC { n: 10.0 });
+    let val = interp(expr);
+    serialize(val);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_numc_interp_serialize() {
+        let expr: ExprC = ExprC::NumC(NumC { n: 10.0 });
+        let val = interp(expr);
+        let output = serialize(val);
+        assert_eq!(output, "10");
+    }
+
+    #[test]
+    fn test_stringc_interp_serialize() {
+        let expr: ExprC = ExprC::StringC(StringC {
+            s: "Hello world!".to_string(),
+        });
+        let val = interp(expr);
+        let output = serialize(val);
+        assert_eq!(output, "Hello world!");
+    }
+}
