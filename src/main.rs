@@ -67,21 +67,21 @@ fn lookup(env: &Environment, name: &str) -> Value {
         .unwrap_or_else(|| panic!("Unbound identifier {name}"))
 }
 
-fn interp(expr: ExprC) -> Value {
-    interp_with_env(expr, &vec![])
+fn top_interp(expr: ExprC) -> Value {
+    interp(expr, &vec![])
 }
 
-fn interp_with_env(expr: ExprC, env: &Environment) -> Value {
+fn interp(expr: ExprC, env: &Environment) -> Value {
     match expr {
         ExprC::NumC(nc) => Value::NumV(NumV { n: nc.n }),
         ExprC::IdC(idc) => lookup(env, &idc.name),
         ExprC::StringC(sc) => Value::StringV(StringV { s: sc.s }),
-        ExprC::IfC(if_c) => match interp_with_env(*if_c.condition, env) {
+        ExprC::IfC(if_c) => match interp(*if_c.condition, env) {
             Value::BoolV(bv) => {
                 if bv.b {
-                    interp_with_env(*if_c.then_, env)
+                    interp(*if_c.then_, env)
                 } else {
-                    interp_with_env(*if_c.else_, env)
+                    interp(*if_c.else_, env)
                 }
             }
             other => panic!("If expected boolean, got {:?}", other),
@@ -99,7 +99,7 @@ fn serialize(val: Value) -> String {
 
 fn main() {
     let expr: ExprC = ExprC::NumC(NumC { n: 10.0 });
-    let val = interp(expr);
+    let val = top_interp(expr);
     serialize(val);
 }
 
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn test_numc_interp_serialize() {
         let expr: ExprC = ExprC::NumC(NumC { n: 10.0 });
-        let val = interp(expr);
+        let val = top_interp(expr);
         let output = serialize(val);
         assert_eq!(output, "10");
     }
@@ -120,7 +120,7 @@ mod tests {
         let expr: ExprC = ExprC::StringC(StringC {
             s: "Hello world!".to_string(),
         });
-        let val = interp(expr);
+        let val = top_interp(expr);
         let output = serialize(val);
         assert_eq!(output, "Hello world!");
     }
@@ -132,7 +132,7 @@ mod tests {
             name: "x".to_string(),
         });
 
-        let val = interp_with_env(expr, &env);
+        let val = interp(expr, &env);
 
         match val {
             Value::NumV(nv) => assert_eq!(nv.n, 42.0),
@@ -157,7 +157,7 @@ mod tests {
             })),
         });
 
-        let val = interp_with_env(expr, &env);
+        let val = interp(expr, &env);
 
         match val {
             Value::NumV(nv) => assert_eq!(nv.n, 1.0),
