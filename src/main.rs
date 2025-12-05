@@ -202,9 +202,18 @@ fn serialize(val: Value) -> String {
 
 //TODO
 pub fn interp_prim(op: &str, args: Vec<Value>) -> Value {
-    match op {
-        "+" => Value::NumV(NumV { n: 10.0 }),
-        &_ => todo!(),
+    match (op, args.as_slice()) {
+        ("+", [Value::NumV(a), Value::NumV(b)]) =>
+            Value::NumV(NumV { n: a.n + b.n }),
+        ("-", [Value::NumV(a), Value::NumV(b)]) =>
+            Value::NumV(NumV { n: a.n - b.n}),
+        ("*", [Value::NumV(a), Value::NumV(b)]) =>
+            Value::NumV(NumV { n: a.n * b.n }),
+        ("/", [Value::NumV(a), Value::NumV(b)]) =>
+            Value::NumV(NumV { n: a.n / b.n }),
+        ("<=", [Value::NumV(a), Value::NumV(b)]) =>
+            Value::BoolV(BoolV { b: a.n <= b.n }),
+        _ => Value::StringV(StringV {s : "Not implemented".to_string()}),
     }
 }
 
@@ -286,6 +295,50 @@ mod tests {
         let output = serialize(val);
         assert_eq!(output, "#<procedure>");
     }
+
+    #[test]
+    fn test_arith_prims() {
+        // Shape:
+        // (AppC (IdC '*') 
+        //       (AppC (IdC '+') (list (NumC 10.0) (NumC 5.0)))
+        // (NumC 8.0))
+        let expr = ExprC::AppC(AppC {
+            fun: Box::new(ExprC::IdC(IdC {name: "*".to_string()})),
+            args: vec![
+                ExprC::AppC(AppC {
+                    fun: Box::new(ExprC::IdC(IdC {name: "-".to_string()})),
+                    args: vec![
+                        ExprC::NumC(NumC { n: 10.0}),
+                        ExprC::NumC(NumC { n: 5.0})
+                    ],
+                }),
+                ExprC::NumC(NumC { n: 8.0}),
+            ],
+        });
+        let val = top_interp(expr);
+        let output = serialize(val);
+        assert_eq!(output, "40");
+    }
+
+    #[test]
+    fn test_leq() {
+        let expr = ExprC::IfC(IfC {
+            condition: Box::new(ExprC::AppC(AppC {
+                fun: Box::new(ExprC::IdC(IdC {name: "<=".to_string()})),
+                args: vec![
+                    ExprC::NumC(NumC { n: 5.0}),
+                    ExprC::NumC(NumC { n: 10.0}),
+                ],
+            })),
+            then_: Box::new(ExprC::NumC(NumC { n: 1.0})),
+            else_: Box::new(ExprC::NumC(NumC { n: 2.0})),
+        });
+        let val = top_interp(expr);
+        let output = serialize(val);
+        assert_eq!(output, "1");
+
+    }
+
 
     #[test]
     fn test_appc_lam_add() {
